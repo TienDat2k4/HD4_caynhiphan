@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cây ↔ Mảng · Biểu diễn cây nhị phân bằng mảng một chiều</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1C2A39; --muted:#5B6B7C; --paper:#F4F8FC; --card:#FFFFFF; --line:#D6E0EA;
+  --mango:#F5A524; --jade:#12A37F; --coral:#F0506E; --sky:#2F6FE0; --sky-soft:#E4EEFF;
+  --ok:#12A37F; --bad:#E0364F;
+  --r-lg:22px; --r-md:14px; --r-sm:10px;
+  font-family:"Be Vietnam Pro",system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);background:var(--paper);
+  background-image:radial-gradient(#cdd9e6 1px,transparent 1px);background-size:22px 22px;min-height:100vh}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+.hidden{display:none!important}
+
+/* header */
+header{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:16px;padding:10px 20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.15rem}
+.brand svg{flex:none}
+.stats{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-weight:600;font-size:.95rem}
+.stat b{font-weight:800}
+.icon-btn{border:1px solid var(--line);background:var(--card);border-radius:999px;width:38px;height:38px;font-size:1.1rem}
+
+nav.steps{display:flex;gap:8px;padding:12px 20px;flex-wrap:wrap;max-width:1180px;margin:0 auto}
+.step{border:2px solid var(--line);background:var(--card);border-radius:999px;padding:8px 16px;font-weight:600;color:var(--muted);display:flex;gap:8px;align-items:center}
+.step .n{width:24px;height:24px;border-radius:50%;background:var(--line);color:var(--ink);display:grid;place-items:center;font-size:.8rem;font-weight:800}
+.step.active{border-color:var(--sky);color:var(--ink)}
+.step.active .n{background:var(--sky);color:#fff}
+.step.done .n{background:var(--jade);color:#fff}
+
+main{max-width:1180px;margin:0 auto;padding:4px 20px 120px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;margin-bottom:18px}
+h1{font-size:clamp(2rem,4.5vw,3.2rem);line-height:1.1;margin:0 0 12px;font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.6rem;margin:0 0 6px;font-weight:800;letter-spacing:-.01em}
+.lead{color:var(--muted);margin:0 0 18px;max-width:70ch;line-height:1.55}
+p{line-height:1.55}
+
+.btn{border:none;border-radius:var(--r-md);padding:12px 22px;font-weight:800;background:var(--sky);color:#fff;font-size:1rem;transition:transform .08s}
+.btn:active{transform:scale(.97)}
+.btn.ghost{background:var(--sky-soft);color:var(--sky)}
+.btn.warn{background:#FFF1D6;color:#8A5A00}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+
+/* start */
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:24px;align-items:center}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-weight:600}
+.field input{font:inherit;padding:12px 14px;border:2px solid var(--line);border-radius:var(--r-sm);font-size:1.05rem}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.95rem;color:var(--muted);margin-top:8px}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:6px}
+
+/* array strip */
+.arr-wrap{overflow-x:auto;padding:6px 2px 10px}
+.arr{display:flex;gap:6px;min-width:max-content}
+.cell{display:flex;flex-direction:column;align-items:center;gap:4px}
+.cell .idx{font-size:.8rem;color:var(--muted);font-weight:600}
+.cell .val{width:54px;height:54px;border-radius:var(--r-sm);border:2px solid var(--line);background:#fff;
+  display:grid;place-items:center;font-weight:800;font-size:1.25rem;transition:all .15s}
+.cell .val.none{color:#A9B6C4;background:#F3F6F9}
+.cell.clickable .val{cursor:pointer}
+.cell.clickable .val:hover{border-color:var(--sky)}
+.cell.h-self .val{border-color:var(--mango);background:#FFF4DE;box-shadow:0 0 0 3px #FBD58A}
+.cell.h-left .val{border-color:var(--jade);background:#E2F6F0;box-shadow:0 0 0 3px #9ADDC9}
+.cell.h-right .val{border-color:var(--coral);background:#FDE8EC;box-shadow:0 0 0 3px #F7A9B8}
+.cell.h-parent .val{border-style:dashed;border-color:var(--ink)}
+.cell input{width:54px;height:54px;border-radius:var(--r-sm);border:2px solid var(--line);text-align:center;font:inherit;font-weight:800;font-size:1.15rem}
+.cell input.ok{border-color:var(--ok);background:#E2F6F0}
+.cell input.bad{border-color:var(--bad);background:#FDE8EC}
+
+/* tree */
+.tree-box{background:linear-gradient(#FBFDFF,#F1F6FB);border:1px solid var(--line);border-radius:var(--r-lg);padding:8px}
+svg.tree{width:100%;height:auto;display:block}
+.node circle{stroke-width:3}
+.node text{font-weight:800;font-size:22px;fill:#fff;pointer-events:none;font-family:inherit}
+.node .ix{font-size:13px;fill:var(--muted);font-weight:600}
+.slot{cursor:pointer}
+.slot circle.empty{fill:#fff;stroke:#B8C6D5;stroke-dasharray:6 5;stroke-width:2.5}
+.slot:hover circle.empty{stroke:var(--sky)}
+.node.pick circle{cursor:pointer}
+.ring-self{stroke:var(--mango)!important;stroke-width:7!important}
+.ring-ok{stroke:var(--ok)!important;stroke-width:6!important}
+.ring-bad{stroke:var(--bad)!important;stroke-width:6!important}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.shake{animation:shake .3s 2}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.formula{background:var(--paper);border-radius:var(--r-md);padding:16px 18px;font-size:1.05rem;line-height:1.8}
+.formula .l{color:var(--jade);font-weight:800}
+.formula .r{color:var(--coral);font-weight:800}
+.formula .s{color:#B97800;font-weight:800}
+.rules{margin:0;padding-left:20px;line-height:1.7;color:var(--ink)}
+
+/* station 2 */
+.q-card{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.parent-badge{background:var(--mango);color:#fff;border-radius:50%;width:84px;height:84px;display:grid;place-items:center;font-size:1.9rem;font-weight:800;flex:none}
+.pair{display:flex;gap:14px;flex-wrap:wrap}
+.slotbox{min-width:150px;border:2px dashed var(--line);border-radius:var(--r-md);padding:10px 14px;background:#fff}
+.slotbox .t{font-size:.85rem;font-weight:600}
+.slotbox .v{font-size:1.6rem;font-weight:800;min-height:2.2rem}
+.slotbox.left .t{color:var(--jade)} .slotbox.right .t{color:var(--coral)}
+.slotbox.active{border-style:solid;border-color:var(--sky)}
+.slotbox.ok{border-style:solid;border-color:var(--ok);background:#E2F6F0}
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.chip{border:2px solid var(--line);background:#fff;border-radius:var(--r-md);min-width:58px;height:54px;padding:0 12px;font-weight:800;font-size:1.2rem;color:var(--ink)}
+.chip:hover{border-color:var(--sky)}
+.chip.sel{background:var(--sky);color:#fff;border-color:var(--sky)}
+.chip.used{opacity:.25;pointer-events:none}
+table.t1{border-collapse:collapse;margin-top:10px;min-width:420px}
+table.t1 th,table.t1 td{border:1.5px solid var(--line);padding:8px 14px;text-align:center;font-weight:800;min-width:56px}
+table.t1 th{background:var(--paper);text-align:left;font-weight:600}
+table.t1 tr.l th{color:var(--jade)} table.t1 tr.r th{color:var(--coral)}
+
+/* helper */
+.helper{position:fixed;right:18px;bottom:18px;z-index:30;display:flex;align-items:flex-end;gap:10px;max-width:min(440px,calc(100vw - 36px))}
+.bubble{background:var(--ink);color:#fff;border-radius:18px 18px 4px 18px;padding:12px 16px;line-height:1.5;font-size:.97rem;box-shadow:0 10px 30px rgba(28,42,57,.25)}
+.bubble.ok{background:var(--jade)} .bubble.bad{background:var(--bad)}
+.bubble b{color:#FFE08A}
+.mascot{flex:none;cursor:pointer}
+
+/* result */
+.result{text-align:center}
+.big{font-size:clamp(3rem,9vw,5.5rem);font-weight:800;line-height:1;color:var(--sky)}
+.bars{display:grid;gap:10px;max-width:520px;margin:18px auto;text-align:left}
+.bar{display:grid;grid-template-columns:130px 1fr 60px;gap:10px;align-items:center;font-weight:600}
+.bar .track{height:14px;background:var(--paper);border-radius:99px;overflow:hidden}
+.bar .fill{height:100%;background:var(--jade);border-radius:99px}
+
+canvas#confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
+
+@media (max-width:820px){.hero,.grid2{grid-template-columns:1fr}.bar{grid-template-columns:100px 1fr 50px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><line x1="17" y1="9" x2="8" y2="25" stroke="#1C2A39" stroke-width="2.5"/><line x1="17" y1="9" x2="26" y2="25" stroke="#1C2A39" stroke-width="2.5"/><circle cx="17" cy="9" r="7" fill="#F5A524"/><circle cx="8" cy="25" r="6" fill="#12A37F"/><circle cx="26" cy="25" r="6" fill="#F0506E"/></svg>
+    Cây ↔ Mảng
+  </div>
+  <div class="stats">
+    <span class="stat" id="whoStat">Nhóm: —</span>
+    <span class="stat">Điểm: <b id="scoreStat">0</b></span>
+    <span class="stat">⏱ <b id="timeStat">00:00</b></span>
+    <button class="icon-btn" id="soundBtn" title="Bật/tắt âm thanh" aria-label="Bật/tắt âm thanh">🔊</button>
+  </div>
+</header>
+
+<nav class="steps hidden" id="steps"></nav>
+
+<main>
+  <!-- START -->
+  <section id="s-start" class="panel">
+    <div class="hero">
+      <div>
+        <h1>Mỗi nút trên cây đều có một chỗ trong mảng.</h1>
+        <p class="lead">Hoạt động 4 · Bài 6: Cây nhị phân. Các em sẽ tìm nút con bằng công thức, dựng lại cây từ mảng, rồi làm ngược lại: từ cây ghi ra mảng. Làm đúng ngay lần đầu được nhiều điểm hơn.</p>
+        <div class="field"><label for="inGroup">Tên nhóm</label><input id="inGroup" placeholder="Ví dụ: Nhóm 3" maxlength="30"></div>
+        <div class="field"><label for="inClass">Lớp</label><input id="inClass" placeholder="Ví dụ: 12A1" maxlength="12"></div>
+        <button class="btn" id="startBtn">Bắt đầu</button>
+      </div>
+      <div class="tree-box"><svg class="tree" id="heroTree" viewBox="0 0 880 400"></svg>
+        <div class="legend">
+          <span><span class="dot" style="background:var(--mango)"></span>Nút đang xét: chỉ số i</span>
+          <span><span class="dot" style="background:var(--jade)"></span>Con trái: 2i + 1</span>
+          <span><span class="dot" style="background:var(--coral)"></span>Con phải: 2i + 2</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATION 1 -->
+  <section id="s-1" class="hidden">
+    <div class="panel">
+      <h2>Khám phá công thức</h2>
+      <p class="lead">Bấm vào một ô trong mảng hoặc một nút trên cây. Quan sát xem con trái, con phải và nút cha nằm ở chỉ số nào.</p>
+      <div class="arr-wrap"><div class="arr" id="arr1"></div></div>
+      <div class="grid2" style="margin-top:10px">
+        <div class="tree-box"><svg class="tree" id="tree1" viewBox="0 0 880 400"></svg></div>
+        <div>
+          <div class="formula" id="formula1">Chọn một ô để bắt đầu.</div>
+          <h3 style="margin:18px 0 6px">Quy tắc</h3>
+          <ul class="rules">
+            <li>Nút gốc luôn ở chỉ số 0.</li>
+            <li>Nút ở chỉ số i có con trái ở <b style="color:var(--jade)">2i + 1</b>, con phải ở <b style="color:var(--coral)">2i + 2</b>.</li>
+            <li>Ngược lại, nút cha của chỉ số i ở <b>(i − 1) div 2</b>.</li>
+            <li>Vị trí không có nút thì ghi <b>N</b> (None). Các N ở cuối mảng không cần lưu.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" data-go="2">Sang nhiệm vụ 1</button></div>
+    </div>
+  </section>
+
+  <!-- STATION 2 -->
+  <section id="s-2" class="hidden">
+    <div class="panel">
+      <h2>Nhiệm vụ 1: Tìm nút con</h2>
+      <p class="lead">Dùng mảng dưới đây. Với mỗi nút cha, chọn giá trị con trái rồi con phải. Nếu không có con, chọn N.</p>
+      <div class="arr-wrap"><div class="arr" id="arr2"></div></div>
+      <div class="q-card" style="margin-top:14px">
+        <div class="parent-badge" id="pBadge">30</div>
+        <div>
+          <div id="pText" style="font-weight:600;margin-bottom:10px"></div>
+          <div class="pair">
+            <div class="slotbox left" id="slotL"><div class="t">Con trái</div><div class="v">?</div></div>
+            <div class="slotbox right" id="slotR"><div class="t">Con phải</div><div class="v">?</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="chips" id="chips2"></div>
+      <div style="overflow-x:auto;margin-top:20px">
+        <table class="t1" id="t1"></table>
+      </div>
+      <div class="row" style="margin-top:18px;justify-content:flex-end">
+        <button class="btn hidden" id="next2">Nút cha tiếp theo</button>
+        <button class="btn hidden" data-go="3" id="go3">Sang nhiệm vụ 2</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATION 3 -->
+  <section id="s-3" class="hidden">
+    <div class="panel">
+      <h2>Nhiệm vụ 2: Dựng lại cây nhị phân</h2>
+      <p class="lead">Chọn một giá trị ở khay bên dưới rồi bấm vào vị trí trống trên cây để đặt. Bấm vào nút đã đặt để lấy lại. Vị trí ứng với N phải để trống.</p>
+      <div class="arr-wrap"><div class="arr" id="arr3"></div></div>
+      <div class="tree-box" style="margin-top:10px"><svg class="tree" id="tree3" viewBox="0 0 880 400"></svg></div>
+      <div class="chips" id="chips3"></div>
+      <div class="row" style="margin-top:18px">
+        <button class="btn" id="check3">Kiểm tra cây</button>
+        <button class="btn warn" id="hint3">Hiện chỉ số trên cây (−20 điểm)</button>
+        <button class="btn ghost" id="reset3">Làm lại</button>
+        <span style="flex:1"></span>
+        <button class="btn hidden" data-go="4" id="go4">Sang thử thách</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATION 4 -->
+  <section id="s-4" class="hidden">
+    <div class="panel">
+      <h2>Thử thách: Từ cây ghi ra mảng</h2>
+      <p class="lead" id="lead4">Cây được tạo ngẫu nhiên, mỗi nhóm một cây khác nhau. Điền giá trị vào đúng chỉ số; ô không có nút thì để trống hoặc ghi N.</p>
+      <div class="tree-box"><svg class="tree" id="tree4" viewBox="0 0 880 400"></svg></div>
+      <div class="arr-wrap" style="margin-top:14px"><div class="arr" id="arr4"></div></div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="check4">Kiểm tra mảng</button>
+      </div>
+      <div id="lenBox" class="hidden" style="margin-top:18px">
+        <p style="font-weight:600;margin:0 0 8px">Bỏ các N ở cuối, mảng này cần tối thiểu bao nhiêu phần tử?</p>
+        <div class="row"><input id="lenIn" type="number" min="1" max="15" style="width:90px;font:inherit;font-weight:800;font-size:1.2rem;padding:10px;border:2px solid var(--line);border-radius:10px"><button class="btn" id="lenBtn">Trả lời</button></div>
+      </div>
+      <div class="row" style="margin-top:18px;justify-content:flex-end">
+        <button class="btn hidden" id="next4">Cây tiếp theo</button>
+        <button class="btn hidden" id="finish">Xem kết quả</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section id="s-5" class="hidden">
+    <div class="panel result">
+      <h2 id="resWho"></h2>
+      <div class="big" id="resScore">0</div>
+      <p style="color:var(--muted);margin-top:6px" id="resMeta"></p>
+      <div class="bars" id="resBars"></div>
+      <p class="lead" style="margin:10px auto">Chụp màn hình trang này và nộp vào thư mục Drive của lớp theo hướng dẫn của thầy cô.</p>
+      <div class="row" style="justify-content:center"><button class="btn ghost" id="again">Chơi lại từ đầu</button></div>
+    </div>
+  </section>
+</main>
+
+<div class="helper" id="helper">
+  <div class="bubble" id="bubble">Chào các em! Nhập tên nhóm rồi bấm <b>Bắt đầu</b> nhé.</div>
+  <svg class="mascot" id="mascot" width="64" height="72" viewBox="0 0 64 72" aria-hidden="true">
+    <line x1="32" y1="36" x2="14" y2="62" stroke="#1C2A39" stroke-width="4" stroke-linecap="round"/>
+    <line x1="32" y1="36" x2="50" y2="62" stroke="#1C2A39" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="14" cy="63" r="8" fill="#12A37F"/><circle cx="50" cy="63" r="8" fill="#F0506E"/>
+    <circle cx="32" cy="26" r="22" fill="#F5A524"/>
+    <circle cx="24" cy="23" r="3.5" fill="#1C2A39"/><circle cx="40" cy="23" r="3.5" fill="#1C2A39"/>
+    <path id="mouth" d="M24 32 Q32 39 40 32" stroke="#1C2A39" stroke-width="3" fill="none" stroke-linecap="round"/>
+  </svg>
+</div>
+<canvas id="confetti"></canvas>
+
+<script>
+(() => {
+const N = null;
+const TASK = [30,18,42,10,24,N,50,6,N,20,27,N];
+const DEMO = ['A','B','C','D','E',N,'F',N,'G'];
+const W = 880, SLOTS = 15;
+const $ = s => document.querySelector(s);
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const show = v => (v === N || v === undefined) ? 'N' : v;
+
+/* ---------- state ---------- */
+const S = { group:'', cls:'', t0:0, timer:null, sound:true, scores:{t2:0,t3:0,t4:0}, done:{1:false,2:false,3:false,4:false}, cur:'start' };
+
+/* ---------- sound ---------- */
+let ac;
+function beep(ok){
+  if (!S.sound) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const notes = ok ? [660, 880] : [220, 180];
+    notes.forEach((f, k) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = ok ? 'triangle' : 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(.12, ac.currentTime + k * .09);
+      g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + k * .09 + .18);
+      o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + k * .09); o.stop(ac.currentTime + k * .09 + .2);
+    });
+  } catch(e) {}
+}
+$('#soundBtn').onclick = () => { S.sound = !S.sound; $('#soundBtn').textContent = S.sound ? '🔊' : '🔈'; };
+
+/* ---------- helper bubble ---------- */
+function say(html, mood){
+  const b = $('#bubble'); b.innerHTML = html; b.className = 'bubble' + (mood ? ' ' + mood : '');
+  $('#mouth').setAttribute('d', mood === 'bad' ? 'M24 36 Q32 30 40 36' : 'M24 32 Q32 39 40 32');
+}
+$('#mascot').onclick = () => $('#bubble').classList.toggle('hidden');
+
+/* ---------- score & timer ---------- */
+const total = () => S.scores.t2 + S.scores.t3 + S.scores.t4;
+const updScore = () => $('#scoreStat').textContent = total();
+const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+const elapsed = () => Math.floor((Date.now() - S.t0) / 1000);
+
+/* ---------- confetti ---------- */
+const cv = $('#confetti'), cx = cv.getContext('2d');
+function confetti(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  cv.width = innerWidth; cv.height = innerHeight;
+  const cols = ['#F5A524','#12A37F','#F0506E','#2F6FE0'];
+  const ps = Array.from({length:140}, () => ({x:Math.random()*cv.width, y:-20 - Math.random()*cv.height*.4, vx:(Math.random()-.5)*4, vy:2+Math.random()*4, r:4+Math.random()*5, c:cols[Math.floor(Math.random()*4)], a:Math.random()*6}));
+  let t = 0;
+  (function f(){
+    cx.clearRect(0,0,cv.width,cv.height);
+    ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += .05; p.a += .1; cx.fillStyle = p.c; cx.save(); cx.translate(p.x,p.y); cx.rotate(p.a); cx.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6); cx.restore(); });
+    if (++t < 170) requestAnimationFrame(f); else cx.clearRect(0,0,cv.width,cv.height);
+  })();
+}
+
+/* ---------- geometry & drawing ---------- */
+function pos(i){ const d = Math.floor(Math.log2(i + 1)), k = i + 1 - 2 ** d; return { x: (k + .5) * W / 2 ** d, y: 50 + d * 105 }; }
+function colorOf(i){ return i === 0 ? 'var(--mango)' : (i % 2 ? 'var(--jade)' : 'var(--coral)'); }
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent){ const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+
+/* opts: values[15], slots(bool) show empty slots, showIdx, rings{i:cls}, onClick(i) */
+function drawTree(svg, o){
+  svg.innerHTML = '';
+  const vals = o.values;
+  const gE = el('g', {}, svg);
+  for (let i = 1; i < SLOTS; i++){
+    const p = (i - 1) >> 1, a = pos(p), b = pos(i);
+    const real = vals[i] != null && vals[p] != null;
+    if (real) el('line', {x1:a.x, y1:a.y, x2:b.x, y2:b.y, stroke:'#1C2A39', 'stroke-width':3}, gE);
+    else if (o.slots) el('line', {x1:a.x, y1:a.y, x2:b.x, y2:b.y, stroke:'#D6E0EA', 'stroke-width':2, 'stroke-dasharray':'4 6'}, gE);
+  }
+  for (let i = 0; i < SLOTS; i++){
+    const {x, y} = pos(i), v = vals[i];
+    if (v == null && !o.slots) continue;
+    const g = el('g', {class: v == null ? 'slot' : 'node' + (o.onClick ? ' pick' : ''), 'data-i': i}, svg);
+    const c = el('circle', {cx:x, cy:y, r:28}, g);
+    if (v == null){ c.setAttribute('class', 'empty'); }
+    else { c.setAttribute('fill', colorOf(i)); c.setAttribute('stroke', '#fff'); el('text', {x, y:y + 8, 'text-anchor':'middle'}, g).textContent = v; }
+    if (o.rings && o.rings[i]) c.classList.add(o.rings[i]);
+    if (o.showIdx){ const t = el('text', {x, y: y - 34, 'text-anchor':'middle', class:'ix'}, g); t.textContent = i; t.setAttribute('style','fill:#5B6B7C;font-size:13px;font-weight:600'); }
+    if (o.onClick){ g.style.cursor = 'pointer'; g.addEventListener('click', () => o.onClick(i)); }
+  }
+}
+const pad = arr => Array.from({length:SLOTS}, (_, i) => arr[i] === undefined ? N : arr[i]);
+
+function drawArr(box, arr, o = {}){
+  box.innerHTML = '';
+  arr.forEach((v, i) => {
+    const c = document.createElement('div'); c.className = 'cell' + (o.onClick ? ' clickable' : '') + (o.hl && o.hl[i] ? ' ' + o.hl[i] : '');
+    c.innerHTML = `<span class="idx">${i}</span><span class="val ${v == null ? 'none' : ''}">${show(v)}</span>`;
+    if (o.onClick) c.querySelector('.val').addEventListener('click', () => o.onClick(i));
+    box.appendChild(c);
+  });
+}
+
+/* ---------- navigation ---------- */
+const STEPS = [[1,'Khám phá'],[2,'Tìm nút con'],[3,'Dựng cây'],[4,'Thử thách'],[5,'Kết quả']];
+function renderSteps(){
+  $('#steps').innerHTML = STEPS.map(([n, t]) => `<button class="step ${S.cur == n ? 'active' : ''} ${S.done[n] ? 'done' : ''}" data-go="${n}"><span class="n">${S.done[n] ? '✓' : n}</span>${t}</button>`).join('');
+}
+function go(n){
+  document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+  $('#s-' + n).classList.remove('hidden'); S.cur = n; renderSteps(); scrollTo({top:0, behavior:'smooth'});
+  ({1:enter1, 2:enter2, 3:enter3, 4:enter4, 5:enter5})[n]?.();
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) go(+b.dataset.go); });
+
+/* ---------- start ---------- */
+drawTree($('#heroTree'), {values: pad(DEMO), rings:{1:'ring-self'}});
+$('#startBtn').onclick = () => {
+  S.group = $('#inGroup').value.trim(); S.cls = $('#inClass').value.trim();
+  if (!S.group){ $('#inGroup').focus(); say('Các em nhập <b>tên nhóm</b> trước đã nhé.', 'bad'); return; }
+  $('#whoStat').textContent = S.group + (S.cls ? ' · ' + S.cls : '');
+  S.t0 = Date.now(); clearInterval(S.timer); S.timer = setInterval(() => $('#timeStat').textContent = fmt(elapsed()), 1000);
+  $('#steps').classList.remove('hidden'); go(1);
+};
+
+/* ---------- station 1 ---------- */
+function explore(i){
+  const L = 2*i + 1, R = 2*i + 2, P = (i - 1) >> 1;
+  const hl = {[i]:'h-self'}; if (L < DEMO.length) hl[L] = 'h-left'; if (R < DEMO.length) hl[R] = 'h-right'; if (i > 0) hl[P] = 'h-parent';
+  drawArr($('#arr1'), DEMO, {onClick: explore, hl});
+  const rings = {[i]:'ring-self'};
+  drawTree($('#tree1'), {values: pad(DEMO), rings, onClick: j => DEMO[j] != null && explore(j)});
+  const v = x => x < DEMO.length ? show(DEMO[x]) : 'N (ngoài mảng)';
+  $('#formula1').innerHTML = DEMO[i] == null
+    ? `Ô <span class="s">${i}</span> là N: không có nút nào ở vị trí này trên cây.`
+    : `Nút <span class="s">${DEMO[i]}</span> ở chỉ số <span class="s">i = ${i}</span><br>
+       Con trái: 2×${i} + 1 = <span class="l">${L}</span> → <span class="l">${v(L)}</span><br>
+       Con phải: 2×${i} + 2 = <span class="r">${R}</span> → <span class="r">${v(R)}</span><br>
+       ${i > 0 ? `Nút cha: (${i} − 1) div 2 = <b>${P}</b> → <b>${DEMO[P]}</b>` : 'Đây là nút gốc nên không có nút cha.'}`;
+}
+function enter1(){ explore(1); S.done[1] = true; renderSteps(); say('Thử bấm vào ô số <b>2</b> và ô số <b>3</b>. Vì sao C chỉ có con phải?'); }
+
+/* ---------- station 2 ---------- */
+const PARENTS = [0,1,2,3,4];
+const st2 = { k:0, side:'L', tries:0, chips: shuffle([30,18,42,10,24,50,6,20,27]).concat(['N']), filled:[] };
+function childVal(p, side){ const j = side === 'L' ? 2*p + 1 : 2*p + 2; return j < TASK.length ? TASK[j] : N; }
+function renderT1(){
+  const cols = PARENTS.map((p, k) => st2.filled[k] || {});
+  $('#t1').innerHTML =
+    `<tr><th>Nút cha</th>${PARENTS.map((p,k) => `<td>${st2.filled[k] ? TASK[p] : ''}</td>`).join('')}</tr>
+     <tr class="l"><th>Con trái</th>${cols.map(c => `<td>${c.L !== undefined ? show(c.L) : ''}</td>`).join('')}</tr>
+     <tr class="r"><th>Con phải</th>${cols.map(c => `<td>${c.R !== undefined ? show(c.R) : ''}</td>`).join('')}</tr>`;
+}
+function render2(){
+  const p = PARENTS[st2.k];
+  drawArr($('#arr2'), TASK, {hl:{[p]:'h-self'}});
+  $('#pBadge').textContent = TASK[p];
+  $('#pText').innerHTML = `Nút cha thứ ${st2.k + 1}/${PARENTS.length}: giá trị <b>${TASK[p]}</b>, chỉ số <b>${p}</b>`;
+  const f = st2.filled[st2.k] || {};
+  [['L','#slotL'],['R','#slotR']].forEach(([s, id]) => {
+    const box = $(id); box.className = 'slotbox ' + (s === 'L' ? 'left' : 'right');
+    box.querySelector('.v').textContent = f[s] !== undefined ? show(f[s]) : '?';
+    if (f[s] !== undefined) box.classList.add('ok'); else if (st2.side === s) box.classList.add('active');
+  });
+  $('#chips2').innerHTML = '';
+  st2.chips.forEach(v => { const b = document.createElement('button'); b.className = 'chip'; b.textContent = v; b.onclick = () => pick2(v === 'N' ? N : v); $('#chips2').appendChild(b); });
+  renderT1();
+}
+function pick2(v){
+  const p = PARENTS[st2.k], s = st2.side; if (!s) return;
+  const ans = childVal(p, s), j = s === 'L' ? 2*p + 1 : 2*p + 2, sname = s === 'L' ? 'trái' : 'phải', f = (st2.filled[st2.k] ||= {});
+  if (v === ans){
+    const pts = st2.tries === 0 ? 10 : st2.tries === 1 ? 5 : 0; S.scores.t2 += pts; updScore(); beep(true);
+    f[s] = ans; st2.tries = 0;
+    say(`Đúng! Con ${sname} của chỉ số ${p} ở ô 2×${p}+${s === 'L' ? 1 : 2} = ${j}, chứa <b>${show(ans)}</b>.${pts ? ` +${pts} điểm` : ''}`, 'ok');
+    advance2();
+  } else {
+    st2.tries++; beep(false);
+    const box = $(s === 'L' ? '#slotL' : '#slotR'); box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+    if (st2.tries >= 2){
+      f[s] = ans; st2.tries = 0;
+      say(`Đáp án: con ${sname} ở chỉ số 2×${p}+${s === 'L' ? 1 : 2} = <b>${j}</b>, ô đó chứa <b>${show(ans)}</b>. Không có điểm câu này, cố lên ở câu sau nhé.`, 'bad');
+      advance2();
+    } else say(`Chưa đúng. Con ${sname} của nút ở chỉ số ${p} nằm ở chỉ số 2×${p} + ${s === 'L' ? 1 : 2}. Tính ra rồi nhìn ô đó trong mảng.`, 'bad');
+  }
+}
+function advance2(){
+  const f = st2.filled[st2.k];
+  if (st2.side === 'L') st2.side = 'R'; else st2.side = null;
+  render2();
+  if (f.L !== undefined && f.R !== undefined){
+    if (st2.k < PARENTS.length - 1) $('#next2').classList.remove('hidden');
+    else { $('#go3').classList.remove('hidden'); S.done[2] = true; renderSteps(); confetti(); say(`Xong bảng rồi! Nhóm được <b>${S.scores.t2}/100</b> điểm. Để ý: nút <b>10</b> cũng là nút cha, vì nó có con trái là 6.`, 'ok'); }
+  }
+}
+$('#next2').onclick = () => { st2.k++; st2.side = 'L'; st2.tries = 0; $('#next2').classList.add('hidden'); render2(); say('Nhớ: con trái ở <b>2i + 1</b>, con phải ở <b>2i + 2</b>.'); };
+function enter2(){ render2(); if (!S.done[2] && st2.k === 0 && !st2.filled[0]) say('Bắt đầu với nút gốc 30 ở chỉ số 0. Con trái của nó ở ô nào?'); }
+
+/* ---------- station 3 ---------- */
+const ANS3 = pad(TASK);
+const st3 = { placed: Array(SLOTS).fill(N), sel: null, checks: 0, hint: false, rings:{}, done:false, tray: shuffle(TASK.filter(v => v != null)) };
+function render3(){
+  drawArr($('#arr3'), TASK);
+  drawTree($('#tree3'), {values: st3.placed, slots: !st3.done, showIdx: st3.hint || st3.done, rings: st3.rings, onClick: click3});
+  $('#chips3').innerHTML = '';
+  st3.tray.forEach(v => {
+    const b = document.createElement('button'); b.className = 'chip' + (st3.sel === v ? ' sel' : '') + (st3.placed.includes(v) ? ' used' : '');
+    b.textContent = v; b.onclick = () => { st3.sel = st3.sel === v ? null : v; render3(); }; $('#chips3').appendChild(b);
+  });
+}
+function click3(i){
+  if (st3.done) return;
+  st3.rings = {};
+  if (st3.placed[i] != null){ st3.placed[i] = N; }
+  else if (st3.sel != null){ st3.placed[i] = st3.sel; st3.sel = null; }
+  else { say('Chọn một giá trị ở khay trước, rồi mới bấm vào vị trí trên cây.'); }
+  render3();
+}
+$('#check3').onclick = () => {
+  if (st3.done) return;
+  st3.checks++; st3.rings = {}; let wrong = 0, missing = 0;
+  for (let i = 0; i < SLOTS; i++){
+    if (st3.placed[i] != null){ if (st3.placed[i] === ANS3[i]) st3.rings[i] = 'ring-ok'; else { st3.rings[i] = 'ring-bad'; wrong++; } }
+    else if (ANS3[i] != null) missing++;
+  }
+  if (!wrong && !missing){
+    st3.done = true; S.scores.t3 = Math.max(30, 100 - 15 * (st3.checks - 1) - (st3.hint ? 20 : 0)); updScore(); beep(true); confetti();
+    S.done[3] = true; renderSteps(); $('#go4').classList.remove('hidden');
+    say(`Chính xác! +${S.scores.t3} điểm. Bí mật nhỏ: mọi nút bên trái đều nhỏ hơn nút cha, bên phải đều lớn hơn. Bài sau các em sẽ biết đây gọi là <b>cây tìm kiếm nhị phân</b>.`, 'ok');
+  } else {
+    beep(false);
+    const firstBad = Object.keys(st3.rings).find(k => st3.rings[k] === 'ring-bad');
+    let tip = '';
+    if (firstBad != null){ const v = st3.placed[firstBad], real = TASK.indexOf(v), p = (real - 1) >> 1;
+      tip = real > 0 ? ` Gợi ý: ${v} ở chỉ số ${real}, nút cha ở (${real}−1) div 2 = ${p}, tức là nút ${TASK[p]}; ${real % 2 ? 'số lẻ nên là con trái' : 'số chẵn nên là con phải'}.` : ''; }
+    say(`${wrong ? `Có <b>${wrong}</b> nút đặt sai (viền đỏ).` : ''} ${missing ? `Còn <b>${missing}</b> nút chưa đặt.` : ''}${tip} Mỗi lần kiểm tra sai trừ 15 điểm.`, 'bad');
+  }
+  render3();
+};
+$('#hint3').onclick = () => { if (st3.hint || st3.done) return; st3.hint = true; $('#hint3').disabled = true; render3(); say('Đã hiện chỉ số trên từng vị trí. Giờ chỉ cần đặt giá trị ở ô i của mảng vào vị trí i trên cây.'); };
+$('#reset3').onclick = () => { if (st3.done) return; st3.placed = Array(SLOTS).fill(N); st3.rings = {}; st3.sel = null; render3(); };
+function enter3(){ render3(); if (!st3.done) say('Gốc 30 ở chỉ số 0. Hai con của nó ở chỉ số 1 và 2. Bắt đầu từ trên xuống nhé!'); }
+
+/* ---------- station 4 ---------- */
+const ROUNDS = 2;
+const st4 = { r:0, arr:null, tries:0, phase:'arr', lenTries:0, pts:[] };
+function genTree(){
+  for (;;){
+    const a = Array(SLOTS).fill(N), used = new Set(); const rv = () => { let v; do v = 1 + Math.floor(Math.random() * 99); while (used.has(v)); used.add(v); return v; };
+    a[0] = rv();
+    for (let i = 1; i < SLOTS; i++){ const p = (i - 1) >> 1, pr = i < 3 ? .85 : i < 7 ? .7 : .45; if (a[p] != null && Math.random() < pr) a[i] = rv(); }
+    const cnt = a.filter(v => v != null).length, last = a.map((v, i) => v != null ? i : -1).reduce((m, x) => Math.max(m, x), 0);
+    const gap = a.slice(0, last).some(v => v == null);
+    if (cnt >= 7 && cnt <= 10 && gap && last >= 7) return a;
+  }
+}
+function render4(inputsOnly){
+  drawTree($('#tree4'), {values: st4.arr});
+  if (inputsOnly) return;
+  const box = $('#arr4'); box.innerHTML = '';
+  for (let i = 0; i < SLOTS; i++){
+    const c = document.createElement('div'); c.className = 'cell';
+    c.innerHTML = `<span class="idx">${i}</span><input maxlength="4" inputmode="text" aria-label="Chỉ số ${i}" data-i="${i}">`;
+    box.appendChild(c);
+  }
+}
+function newRound(){
+  st4.arr = genTree(); st4.tries = 0; st4.lenTries = 0; st4.phase = 'arr';
+  $('#lenBox').classList.add('hidden'); $('#lenIn').value = ''; $('#next4').classList.add('hidden'); $('#check4').disabled = false;
+  $('#lead4').textContent = `Cây ${st4.r + 1}/${ROUNDS}. Điền giá trị vào đúng chỉ số; ô không có nút thì để trống hoặc ghi N.`;
+  render4();
+}
+$('#check4').onclick = () => {
+  if (st4.phase !== 'arr') return;
+  let bad = 0, firstBad = -1;
+  document.querySelectorAll('#arr4 input').forEach(inp => {
+    const i = +inp.dataset.i, raw = inp.value.trim().toUpperCase();
+    const v = (raw === '' || raw === 'N' || raw === 'NONE') ? N : Number(raw);
+    const ok = v === st4.arr[i]; inp.classList.toggle('ok', ok && v != null); inp.classList.toggle('bad', !ok); if (!ok){ bad++; if (firstBad < 0) firstBad = i; }
+  });
+  if (!bad){
+    const pts = Math.max(10, 40 - 10 * st4.tries); st4.pts[st4.r] = pts; S.scores.t4 += pts; updScore(); beep(true);
+    st4.phase = 'len'; $('#check4').disabled = true; $('#lenBox').classList.remove('hidden'); $('#lenIn').focus();
+    say(`Mảng đúng rồi! +${pts} điểm. Câu phụ (+10): nếu bỏ các N ở cuối thì mảng cần bao nhiêu phần tử?`, 'ok');
+  } else {
+    st4.tries++; beep(false);
+    const i = firstBad, p = (i - 1) >> 1;
+    const why = i === 0 ? 'Chỉ số 0 luôn là nút gốc.' :
+      `Ô ${i} có nút cha ở chỉ số (${i}−1) div 2 = ${p}. ${i % 2 ? 'Chỉ số lẻ nên đây là vị trí con trái' : 'Chỉ số chẵn nên đây là vị trí con phải'} của nút ${st4.arr[p] == null ? 'trống (N), vậy ô này cũng phải là N' : st4.arr[p]}.`;
+    say(`Còn <b>${bad}</b> ô sai (tô đỏ). ${why}`, 'bad');
+  }
+};
+$('#lenBtn').onclick = () => {
+  if (st4.phase !== 'len') return;
+  const last = st4.arr.map((v, i) => v != null ? i : -1).reduce((m, x) => Math.max(m, x), 0), need = last + 1;
+  if (+$('#lenIn').value === need){ if (st4.lenTries === 0){ S.scores.t4 += 10; updScore(); } beep(true); say(`Đúng: nút cuối ở chỉ số ${last}, nên cần ${need} phần tử (từ 0 đến ${last}).`, 'ok'); endRound(); }
+  else { st4.lenTries++; beep(false);
+    if (st4.lenTries >= 2){ say(`Nút cuối cùng ở chỉ số ${last}. Mảng đánh số từ 0, nên cần ${last} + 1 = <b>${need}</b> phần tử.`, 'bad'); endRound(); }
+    else say('Chưa đúng. Tìm chỉ số lớn nhất còn có nút. Nhớ rằng mảng bắt đầu từ chỉ số 0.', 'bad'); }
+};
+function endRound(){
+  st4.phase = 'done';
+  if (st4.r < ROUNDS - 1) $('#next4').classList.remove('hidden');
+  else { $('#finish').classList.remove('hidden'); S.done[4] = true; renderSteps(); confetti(); }
+}
+$('#next4').onclick = () => { st4.r++; newRound(); say('Cây mới đã sẵn sàng. Bắt đầu từ nút gốc ở chỉ số 0.'); };
+$('#finish').onclick = () => go(5);
+function enter4(){ if (!st4.arr) { newRound(); say('Cây của nhóm em khác với nhóm bên cạnh, nên đừng chép bài nhé 😄'); } else render4(true); }
+
+/* ---------- result ---------- */
+function enter5(){
+  S.done[5] = true; renderSteps(); clearInterval(S.timer);
+  const t = elapsed(); $('#timeStat').textContent = fmt(t);
+  $('#resWho').textContent = `${S.group}${S.cls ? ' · Lớp ' + S.cls : ''}`;
+  $('#resScore').textContent = `${total()}/300`;
+  const d = new Date();
+  $('#resMeta').textContent = `Thời gian: ${fmt(t)} · ${d.toLocaleDateString('vi-VN')} ${d.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}`;
+  $('#resBars').innerHTML = [['Tìm nút con', S.scores.t2], ['Dựng cây', S.scores.t3], ['Thử thách', S.scores.t4]]
+    .map(([n, v]) => `<div class="bar"><span>${n}</span><div class="track"><div class="fill" style="width:${v}%"></div></div><span>${v}/100</span></div>`).join('');
+  confetti(); say(total() >= 240 ? 'Xuất sắc! Nhóm em đã nắm chắc cách biểu diễn cây bằng mảng.' : 'Hoàn thành rồi! Xem lại những câu còn sai để hiểu vì sao nhé.', 'ok');
+}
+$('#again').onclick = () => location.reload();
+})();
+</script>
+</body>
+</html>
